@@ -1,0 +1,4 @@
+game
+.vscode/
+*.out
+*.o
