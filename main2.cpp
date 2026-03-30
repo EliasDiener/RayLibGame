@@ -329,7 +329,11 @@ class WaveManager
     float cDmg = basedmg*dmgMulti;
     float cSpeed = basespeed*speedMulti;
     bool waveDefeat = true;
-    bool specialWave = false;
+    bool bossWave = false;
+    int bossCounter = 10;
+    float bosshp;
+    bool addgold = false;
+    UIElements ui;
     std::vector<Enemy> enemies;
 
     void createWave()
@@ -337,9 +341,24 @@ class WaveManager
         if(waveDefeat == true)
         {
         wave++;
+        bossCounter++;
+        if(bossCounter >=10){bossWave =true;}
         enemies.clear();
         srand(time(NULL));
         enemyAmount = wave + 3;
+         if(bossWave)
+        {
+        Enemy boss;
+        boss.currenhealth = cHealth*20;
+        boss.health = cHealth*20;
+        boss.dmg = cDmg*5;
+        boss.cSpeed = cSpeed/2;
+        boss.size = boss.size*3;
+        boss.spawn();
+        enemies.push_back(boss);
+        bosshp = boss.currenhealth;
+        bossCounter = 0;
+        }
         for(int i=0; i < enemyAmount; i++)
         {
         Enemy enemy;
@@ -352,7 +371,6 @@ class WaveManager
         }
         }
     }
-
 
     void checkEnemyOverlap()
     {
@@ -394,6 +412,7 @@ class WaveManager
         if(!enemies[i].alive)
             {
             enemies.erase(enemies.begin() + i);
+            addgold = true;
             }
         }
     }
@@ -401,14 +420,16 @@ class WaveManager
     void drawWave()
     {
         for(int i = 0; i < enemies.size(); i++){enemies[i].draw();}
+        if(enemies[0].health > cHealth){bosshp = enemies[0].currenhealth;}else{bossWave =false;}
         std::string waveText = std::to_string(wave);
         DrawText(waveText.c_str(), 440, 50, 30, BLACK);
         DrawText("Wave", 340, 50, 30, BLACK);
+        if(bossWave){ui.drawBoxWithText(320,90,140,30,95,GREEN,std::to_string(bosshp).c_str(),20,BLACK);}
     }
 
     void waveEnded()
     {
-        if(enemies.size() == 0){waveDefeat = true;}
+        if(enemies.size() == 0){waveDefeat = true;if(bossWave){bossWave=false;};}
     }
 
     void apllyDificulty()
@@ -436,8 +457,8 @@ class WaveManager
 class AtackManager
 {
  public:
-    float baseAtackColdown = 1;
-    float coldownMulti = 1;
+    float baseAtackColdown = 0.5;
+    float coldownMulti = 2;
     float currentColdown = baseAtackColdown*coldownMulti;
     float baseDmg = 10;
     float dmgMulti = 1;
@@ -567,6 +588,7 @@ class StatShop : UIElements
 {
     public:
     int gold = 1;
+    int goldgain=1;
     int baseDmg =1;
     int baseHp =1;
     int baseArmor =1;
@@ -577,14 +599,26 @@ class StatShop : UIElements
     Rectangle rateUpgrade;
     
 
+    void updateGold(WaveManager & wave)
+    {
+        if(wave.addgold)
+        {
+            gold +=goldgain;
+            wave.addgold = false;
+        }
+    }
+
     void shopButtons(AtackManager & atack,Player & player)
     {
      mausUpdate();
      dmgUpgrade = {60,480,80,50};
      if(isClicked(dmgUpgrade)&& gold >= 1){atack.baseDmg += 1;gold-=1;}
      hpUpgrade = {180,480,80,50};
+     if(isClicked(hpUpgrade)&& gold >= 1){player.basehp += 1;gold-=1;}
      armorUpgrade = {320,480,80,50};
+     if(isClicked(armorUpgrade)&& gold >= 1){player.armor += 1;gold-=1;}
      rateUpgrade = {440,480,80,50};
+     if(isClicked(rateUpgrade)&& gold >= 1){atack.coldownMulti -= 0.1;gold-=1;}
     }
 
     void drawshop()
@@ -629,6 +663,7 @@ atack.createProjectile(player);
 atack.updateProjectile(wave);
 player.updateHitBox();
 wave.spawnWave(player);
+shop.updateGold(wave);
 wave.checkEnemyOverlap();
 wave.waveEnded();
 BeginDrawing();
