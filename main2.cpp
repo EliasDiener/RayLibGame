@@ -4,8 +4,21 @@
 #include <cstdlib>
 #include <ctime>
 #include <string>
+#include <sstream>
+#include <iomanip>
 //Vector2 mouse = GetMousePosition(); für die maus kordinate 
 //Color meineFarbe = {255, 0, 0, 255}; // Rot funktion um farbe mit r+g+b+a(transparenz) zu erstellen
+
+std::string f2(float value)
+{
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(2) << value;
+    return stream.str();
+}
+
+Sound click = LoadSound("Minimalist11.ogg");
+
+int losses = 2;
 
 class Entity{};
 class StatShop;
@@ -29,36 +42,27 @@ class UIElements
     int textX = x + (w - textWidth) / 2;
     DrawText(text.c_str(), textX , yText, textSize, textColor);
     }
+     void drawBoxWithTextRec(Rectangle r,int yText, Color boxColor, const std::string& text, int textSize, Color textColor)
+    {
+    float x = r.x;
+    float y = r.y;
+    float w = r.width;
+    float h = r.height;
+    DrawRectangle(x, y, w, h, boxColor);
+    int textWidth = MeasureText(text.c_str(), textSize);
+    int textX = x + (w - textWidth) / 2;
+    DrawText(text.c_str(), textX , yText, textSize, textColor);
+    }
 
 
     bool isClicked(Rectangle r)
     {
-        if(CheckCollisionRecs(r,mouse) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){return true;}else{return false;}
+        if(CheckCollisionRecs(r,mouse) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){PlaySound(click);;return true;}else{return false;}
 
     }
 
 };
 
-class UI : UIElements
-{
-    public:
-
-
-    void drawUI()
-    {
-        DrawRectangle(0,0,40,550,DARKGRAY);
-        DrawRectangle(0,0,800,40,DARKGRAY);
-        DrawRectangle(760,0,40,550,DARKGRAY);
-        drawBoxWithText(40,40,20,20,50,RED,"X",10,BLACK); //close game button zum testen meiner click funktion 
-    }
-    void exitButton()
-    {
-        Rectangle exit ={40,40,20,20};
-        mausUpdate();if(isClicked(exit)){CloseWindow();}
-    }
-
-
-};
 class Player : public Entity
 {
 public:
@@ -74,6 +78,24 @@ float hpRegenMulti = 1;
 float currentHp = basehp*hpMulti;
 UIElements ui;
 Rectangle hitBox;
+ 
+void resetPlayer(int windowX, int windowY)
+    {
+        alive = true;
+        x = windowX / 2 - size / 2;
+        y = windowY / 2 - size / 2;
+
+        basehp = 10000;
+        baseHpRegen = 5;
+        hpMulti = 1;
+        armor = 0;
+        hpRegenMulti = 1;
+        currentHp = basehp * hpMulti;
+
+        midlepoint = {x + size / 2, y + size / 2};
+        hitBox = {x, y, size, size};
+    }
+
 void draw()
     {
         DrawRectangleRec(hitBox, BLACK);
@@ -185,21 +207,34 @@ public:
     {
         std::vector<Vector2> spawns =
     {
-    {0, 0},          // oben links
-    {400, 0},        // oben mitte
-    {800, 0},        // oben rechts
+   // OBEN (y = 0)
+    {160, 0},
+    {320, 0},
+    {480, 0},
+    {640, 0},
 
-    {0, 225},        // mitte links
-    {800, 225},      // mitte rechts
+    // UNTEN (y = 450)
+    {160, 450},
+    {320, 450},
+    {480, 450},
+    {640, 450},
 
-    {0, 450},        // unten links
-    {400, 450},      // unten mitte
-    {800, 450}       // unten rechts
+    // LINKS (x = 0)
+    {0, 90},
+    {0, 180},
+    {0, 270},
+    {0, 360},
+
+    // RECHTS (x = 800)
+    {800, 90},
+    {800, 180},
+    {800, 270},
+    {800, 360}
     };
 
     if(!alive)
     {
-    int index = rand() % 8;
+    int index = rand() % 16;
     Vector2 spawnPos = spawns[index];
     x = spawnPos.x;
     y = spawnPos.y;
@@ -330,11 +365,43 @@ class WaveManager
     float cSpeed = basespeed*speedMulti;
     bool waveDefeat = true;
     bool bossWave = false;
-    int bossCounter = 10;
+    int bossCounter = 1;
     float bosshp;
     bool addgold = false;
     UIElements ui;
     std::vector<Enemy> enemies;
+
+void resetProgress()
+    {
+        wave = 0;
+        dificulty = 1;
+        enemyAmount = 0;
+        spawnCooldown = 0.5f;
+        spawnAmount = 1;
+
+        basehealth = 10;
+        healthmulti = 1;
+        basedmg = 10;
+        dmgMulti = 1;
+        size = 20;
+        basespeed = 0.5f;
+        speedMulti = 1;
+
+        cHealth = basehealth * healthmulti;
+        cDmg = basedmg * dmgMulti;
+        cSpeed = basespeed * speedMulti;
+
+        waveDefeat = true;
+        bossWave = false;
+        bossCounter = 10;
+        bosshp = 0;
+        addgold = false;
+
+        enemies.clear();
+    }
+
+
+
 
     void createWave()
     {
@@ -424,7 +491,7 @@ class WaveManager
         std::string waveText = std::to_string(wave);
         DrawText(waveText.c_str(), 440, 50, 30, BLACK);
         DrawText("Wave", 340, 50, 30, BLACK);
-        if(bossWave){ui.drawBoxWithText(320,90,140,30,95,GREEN,std::to_string(bosshp).c_str(),20,BLACK);}
+        if(bossWave){ui.drawBoxWithText(320,90,140,30,95,GREEN,f2(bosshp).c_str(),20,BLACK);}
     }
 
     void waveEnded()
@@ -448,9 +515,9 @@ class WaveManager
     void drawStats()
     {
         DrawRectangle(660,450,100,100,GRAY);
-        DrawText(std::to_string(cHealth).c_str(),710,480,10,BLACK);DrawText("EnemyHP :",630,480,11,BLACK);
-        DrawText(std::to_string(cDmg).c_str(),710,500,10,BLACK);DrawText("EnemyDMG :",630,500,11,BLACK);
-        DrawText(std::to_string(cSpeed).c_str(),710,520,10,BLACK);DrawText("EnemySpeed :",630,520,11,BLACK);
+        DrawText(f2(cHealth).c_str(),710,480,10,BLACK);DrawText("EnemyHP :",630,480,11,BLACK);
+        DrawText(f2(cDmg).c_str(),710,500,10,BLACK);DrawText("EnemyDMG :",630,500,11,BLACK);
+        DrawText(f2(cSpeed).c_str(),710,520,10,BLACK);DrawText("EnemySpeed :",630,520,11,BLACK);
     }
 
 };
@@ -460,9 +527,25 @@ class AtackManager
     float baseAtackColdown = 0.5;
     float coldownMulti = 2;
     float currentColdown = baseAtackColdown*coldownMulti;
+    float currentColdownREF = baseAtackColdown*coldownMulti;
     float baseDmg = 10;
     float dmgMulti = 1;
     std::vector<Projectile> projectiles;
+
+
+
+    void resetAtack()
+    {
+        baseAtackColdown = 0.5f;
+        coldownMulti = 2.0f;
+        baseDmg = 10;
+        dmgMulti = 1;
+
+        currentColdown = baseAtackColdown * coldownMulti;
+        currentColdownREF = baseAtackColdown * coldownMulti;
+
+        projectiles.clear();
+    }
 
     void createProjectile(Player & player)
     {
@@ -476,6 +559,7 @@ class AtackManager
         p.getAim();
         projectiles.push_back(p);
         currentColdown = baseAtackColdown*coldownMulti;
+        currentColdownREF = baseAtackColdown*coldownMulti;
        }
     }
 
@@ -516,6 +600,18 @@ class AtackManager
 
 };
 
+class skillTree : UIElements
+{
+    public:
+    int scrap = 0;
+    int scrapGain = 1;
+
+
+
+
+
+};  
+
 class Items
 {
     public:
@@ -531,6 +627,61 @@ class Items
     float dmgPercentUp = 0;
     float hpPercentUp = 0;
     float ratePercentUp = 0;
+
+
+};
+
+class MainMenu : UIElements
+{
+    public:
+    bool gameStarted = false;
+    float buttonWidth = 200;
+    float buttonHeight = 70;
+    float buttonsX = (GetScreenWidth()/2)-buttonWidth/2;
+    int buttonOffsetY = 130;
+    float buttonsY =  200;                                  //(GetScreenHeight()/2)+buttonOffsetY;
+    Rectangle playButton;
+    Rectangle skillTreeButton;
+
+    void menuButtons()
+    {
+        buttonsX = (GetScreenWidth()/2)-buttonWidth/2;
+        buttonsY = (GetScreenHeight()/2)-buttonOffsetY;
+        playButton = {buttonsX,buttonsY,buttonWidth,buttonHeight};mausUpdate();
+        if(losses >=1){skillTreeButton = {buttonsX,buttonsY+100,buttonWidth,buttonHeight};mausUpdate();}
+        if(isClicked(playButton)){gameStarted = true;}
+    }
+
+
+    void drawMenu()
+    {
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+        DrawText("Defend A Cube",playButton.x-120,playButton.y-100,60,BLACK);
+        drawBoxWithTextRec(playButton,playButton.y+22,LIGHTGRAY,"PLAY",30,BLACK);
+        if(losses >=1){drawBoxWithTextRec(skillTreeButton,skillTreeButton.y+22,LIGHTGRAY,"SKILL-TREE",30,BLACK);}
+        EndDrawing();
+    }
+
+};
+
+class UI : UIElements
+{
+    public:
+
+
+    void drawUI()
+    {
+        DrawRectangle(0,0,40,550,DARKGRAY);
+        DrawRectangle(0,0,800,40,DARKGRAY);
+        DrawRectangle(760,0,40,550,DARKGRAY);
+        drawBoxWithText(40,40,20,20,50,RED,"X",10,BLACK); //close game button zum testen meiner click funktion 
+    }
+    void exitButton(MainMenu & menu)
+    {
+        Rectangle exit ={40,40,20,20};
+        mausUpdate();if(isClicked(exit)){menu.gameStarted = false;}
+    }
 
 
 };
@@ -593,11 +744,45 @@ class StatShop : UIElements
     int baseHp =1;
     int baseArmor =1;
     int baseReload =1;
+    int startGold = 10;
+    int startGoldGain=1;
+    int startBaseDmg =1;
+    int startBaseHp =1;
+    int startBaseArmor =1;
+    int startBaseReload =1;
+    int shopMulti = 1;
+    float cArmor;
+    float cDmg;
+    float cHP;
+    float cRate;
     Rectangle dmgUpgrade;
     Rectangle hpUpgrade;
     Rectangle armorUpgrade;
     Rectangle rateUpgrade;
-    
+    Rectangle oneX;
+    Rectangle fiveX;
+    Rectangle tenX;
+
+    void resetShop()
+    {
+        gold = startGold;
+        goldgain = startGoldGain;
+        baseDmg = startBaseDmg;
+        baseHp = startBaseHp;
+        baseArmor = startBaseArmor;
+        baseReload = startBaseReload;
+
+        cArmor = 0;
+        cDmg = 0;
+        cHP = 0;
+        cRate = 0;
+
+        dmgUpgrade = {0,0,0,0};
+        hpUpgrade = {0,0,0,0};
+        armorUpgrade = {0,0,0,0};
+        rateUpgrade = {0,0,0,0};
+    }
+
 
     void updateGold(WaveManager & wave)
     {
@@ -611,31 +796,50 @@ class StatShop : UIElements
     void shopButtons(AtackManager & atack,Player & player)
     {
      mausUpdate();
+     oneX = {180,455,15,20};
+     if(isClicked(oneX)){shopMulti = 1;}
+     fiveX = {210,455,15,20};
+     if(isClicked(fiveX)){shopMulti = 5;}
+     tenX = {240,455,15,20};
+     if(isClicked(tenX)){shopMulti = 10;}
      dmgUpgrade = {60,480,80,50};
-     if(isClicked(dmgUpgrade)&& gold >= 1){atack.baseDmg += 1;gold-=1;}
+     if(isClicked(dmgUpgrade)&& gold >= 1*shopMulti){atack.baseDmg += 1*shopMulti;gold-=1*shopMulti;}
      hpUpgrade = {180,480,80,50};
-     if(isClicked(hpUpgrade)&& gold >= 1){player.basehp += 1;gold-=1;}
+     if(isClicked(hpUpgrade)&& gold >= 1*shopMulti){player.basehp += 1*shopMulti;gold-=1*shopMulti;}
      armorUpgrade = {320,480,80,50};
-     if(isClicked(armorUpgrade)&& gold >= 1){player.armor += 1;gold-=1;}
+     if(isClicked(armorUpgrade)&& gold >= 1*shopMulti){player.armor += 1*shopMulti;gold-=1*shopMulti;}
      rateUpgrade = {440,480,80,50};
-     if(isClicked(rateUpgrade)&& gold >= 1){atack.coldownMulti -= 0.1;gold-=1;}
+     if(isClicked(rateUpgrade)&& gold >= 1*shopMulti){atack.coldownMulti -= 0.1*shopMulti;gold-=1*shopMulti;}
+    cArmor = player.armor;
+    cDmg = atack.baseDmg;
+    cHP = player.basehp;
+    cRate = atack.currentColdownREF;
     }
 
     void drawshop()
     {
     drawBoxWithText(0,450,800,100,460,GRAY,"SHOP",20,BLACK);
+    drawBoxWithTextRec(oneX,oneX.y+3,DARKGRAY,"1X",12,BLACK);
+    drawBoxWithTextRec(fiveX,fiveX.y+3,DARKGRAY,"5X",12,BLACK);
+    drawBoxWithTextRec(tenX,tenX.y+3,DARKGRAY,"10X",12,BLACK);
     DrawText("gold",60,455,15,BLACK);DrawText(std::to_string(gold).c_str(),100,455,15,BLACK);
     drawBoxWithText(dmgUpgrade.x,dmgUpgrade.y,dmgUpgrade.width,dmgUpgrade.height,dmgUpgrade.y+15,DARKGRAY,"DMG+",20,BLACK);
     drawBoxWithText(hpUpgrade.x,hpUpgrade.y,hpUpgrade.width,hpUpgrade.height,hpUpgrade.y+15,DARKGRAY,"HP+",20,BLACK);
     drawBoxWithText(armorUpgrade.x,armorUpgrade.y,armorUpgrade.width,armorUpgrade.height,armorUpgrade.y+15,DARKGRAY,"Armor+",20,BLACK);
     drawBoxWithText(rateUpgrade.x,rateUpgrade.y,rateUpgrade.width,rateUpgrade.height,rateUpgrade.y+15,DARKGRAY,"Rate+",20,BLACK);
+    DrawText(f2(cDmg).c_str(),dmgUpgrade.x,dmgUpgrade.y+40,10,BLACK);
+    DrawText(f2(cHP).c_str(),hpUpgrade.x,hpUpgrade.y+40,10,BLACK);
+    DrawText(f2(cArmor).c_str(),armorUpgrade.x,armorUpgrade.y+40,10,BLACK);
+    DrawText(f2(cRate).c_str(),rateUpgrade.x,rateUpgrade.y+40,10,BLACK);
     }
 
 };
 
+
 int main()
 {
 srand(time(NULL));
+MainMenu menu;
 Player player;
 Projectile Projectile; 
 Enemy enemy;
@@ -649,15 +853,22 @@ int windowY = 550;
 player.x = windowX / 2 - player.size / 2;
 player.y = windowY / 2 - player.size / 2;
 InitWindow(windowX,windowY,"Game");
+InitAudioDevice();
+click = LoadSound("Minimalist11.ogg");
+Music music = LoadMusicStream("Gymnopédie No.1.ogg");
+PlayMusicStream(music);
 SetTargetFPS(60);
 while(!WindowShouldClose())
 {
+UpdateMusicStream(music);
+if(!menu.gameStarted)
+{menu.menuButtons();menu.drawMenu();player.resetPlayer(windowX,windowY);atack.resetAtack();wave.resetProgress();shop.resetShop();}else{
 shop.shopButtons(atack,player);
-ui.exitButton();
+ui.exitButton(menu);
 uiE.mausUpdate();
 wave.apllyDificulty();
 wave.createWave();
-if(player.gameOver()){break;}
+if(player.gameOver()){menu.gameStarted = false;}
 atack.cd();
 atack.createProjectile(player);
 atack.updateProjectile(wave);
@@ -675,7 +886,7 @@ shop.drawshop();
 ui.drawUI();
 wave.drawStats();
 EndDrawing();
-}
+}}
 CloseWindow();
 }
 
